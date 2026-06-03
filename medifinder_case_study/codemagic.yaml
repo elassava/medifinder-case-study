@@ -1,0 +1,101 @@
+# Codemagic CI — MediFinder case study
+# Docs: https://docs.codemagic.io/yaml/yaml-getting-started/
+#
+# iOS Simulator build:
+#   1. Push to GitHub and connect repo at codemagic.io
+#   2. Start the "ios-simulator" workflow
+#   3. Download Runner.app.zip from Artifacts
+#   4. Upload to https://appetize.io to run in the browser
+
+workflows:
+  ios-simulator:
+    name: iOS Simulator (Appetize)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/Library/Caches/CocoaPods
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+        - pattern: master
+          include: true
+        - pattern: develop
+          include: true
+
+    scripts:
+      - name: Install dependencies
+        script: flutter pub get
+
+      - name: Generate localizations
+        script: flutter gen-l10n
+
+      - name: Verify checkout
+        script: |
+          echo "Commit: $(git rev-parse HEAD)"
+          head -n 16 lib/blocs/provider_list/provider_list_bloc.dart
+
+      - name: Run tests
+        script: flutter test
+
+      - name: Build iOS Simulator app
+        script: flutter build ios --simulator --debug
+
+      - name: Zip for Appetize
+        script: |
+          cd build/ios/iphonesimulator
+          zip -r Runner.app.zip Runner.app
+
+    artifacts:
+      - build/ios/iphonesimulator/Runner.app.zip
+      - flutter_drive.log
+
+  android-debug:
+    name: Android Debug APK
+    max_build_duration: 30
+    instance_type: linux_x2
+
+    environment:
+      flutter: stable
+
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+        - pattern: master
+          include: true
+        - pattern: develop
+          include: true
+
+    scripts:
+      - name: Install dependencies
+        script: flutter pub get
+
+      - name: Generate localizations
+        script: flutter gen-l10n
+
+      - name: Run tests
+        script: flutter test
+
+      - name: Build Android APK
+        script: flutter build apk --debug
+
+    artifacts:
+      - build/app/outputs/flutter-apk/app-debug.apk
